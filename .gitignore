@@ -1,0 +1,10 @@
+.env
+.env.*
+.secrets/
+*.db
+*.db-journal
+__pycache__/
+*.pyc
+node_modules/
+dist/
+.venv/

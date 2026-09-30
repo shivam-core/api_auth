@@ -1,0 +1,59 @@
+:root {
+  --page-background: #FAFAFA;
+  --surface: #FFFFFF;
+  --primary-text: #171717;
+  --secondary-text: #666666;
+  --border: #E5E5E5;
+  --accent: #2563EB;
+  --success: #15803D;
+  --error: #B91C1C;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-background: #0A0A0A;
+    --surface: #141414;
+    --primary-text: #EDEDED;
+    --secondary-text: #A1A1A1;
+    --border: #2A2A2A;
+    --accent: #60A5FA;
+    --success: #4ADE80;
+    --error: #F87171;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--page-background);
+  color: var(--primary-text);
+  font-family: system-ui, sans-serif;
+}
+
+h1, h2, h3 {
+  color: var(--primary-text);
+}
+
+a {
+  color: var(--accent);
+}
+
+input, textarea, button {
+  font-family: inherit;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--primary-text);
+  padding: 8px;
+  border-radius: 4px;
+}
+
+button {
+  cursor: pointer;
+  background-color: var(--accent);
+  color: white;
+  border: none;
+}
+
+button:hover {
+  opacity: 0.9;
+}

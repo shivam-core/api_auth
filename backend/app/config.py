@@ -56,11 +56,14 @@ try:
     if public_key.public_numbers() != expected_public_numbers:
         raise ValueError("RSA public and private keys do not match")
 
-    # The file contents / b64 env var is base64 encoded AES key
-    # It must be decoded before use. load_aes_key expects a string.
-    from app.security import load_aes_key
-    NOTES_AES_KEY = load_aes_key(notes_key_b64_bytes.decode('ascii'))
+    # The file contents / b64 env var might be raw bytes or base64 encoded string
+    if len(notes_key_b64_bytes) == 32:
+        NOTES_AES_KEY = notes_key_b64_bytes
+    else:
+        NOTES_AES_KEY = base64.b64decode(notes_key_b64_bytes.strip())
     
+    if len(NOTES_AES_KEY) != 32:
+        raise ValueError("Invalid AES key length")
 except Exception as e:
     import sys
     print(f"Startup fails safely: {e}", file=sys.stderr)

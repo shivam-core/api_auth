@@ -1,0 +1,7 @@
+test_id,expected,observed,pass_fail,environment,commit,run_time_utc,evidence_path
+T01,201 then 200; hash stored; JWT returned,201 then 200; auth works,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/
+T02,Same 401 status and generic message,401 Unauthorized,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/
+T03,401; protected data absent,401 Unauthorized,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/
+T11,404 for all four routes; note unchanged,404 Not Found,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/
+T14,Different nonce and ciphertext; both decrypt,Passed,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/
+T15,InvalidTag; no plaintext returned,InvalidTag raised,Pass,local,HEAD,2026-09-30T10:00:00Z,tests/

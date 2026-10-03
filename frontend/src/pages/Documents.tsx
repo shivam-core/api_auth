@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { api, getAccessToken } from '../api/client';
 
 export function Documents() {
     const [documents, setDocuments] = useState<any[]>([]);
@@ -36,7 +36,7 @@ export function Documents() {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${getAccessToken()}`
                 }
             });
             setName('');
@@ -56,7 +56,7 @@ export function Documents() {
             
             // fetch content
             const contentRes = await fetch(`/api/documents/${id}/content`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                headers: { 'Authorization': `Bearer ${getAccessToken()}` }
             });
             const textContent = await contentRes.text();
             

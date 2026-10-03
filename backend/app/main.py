@@ -22,6 +22,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         headers={"Cache-Control": "no-store"}
     )
 
+import traceback
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"error": {"message": str(exc), "traceback": traceback.format_exc()}},
+        headers={"Cache-Control": "no-store"}
+    )
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)

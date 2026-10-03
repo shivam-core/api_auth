@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
@@ -47,7 +47,7 @@ def override_get_db():
     try:
         db = TestingSessionLocal()
         # Enforce foreign keys manually for sqlite memory DB in test
-        db.execute("PRAGMA foreign_keys=ON")
+        db.execute(text("PRAGMA foreign_keys=ON"))
         yield db
     finally:
         db.close()

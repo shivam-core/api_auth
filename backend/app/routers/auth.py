@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.post("/register", status_code=201)
 def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db)):
-    ip = request.client.host
+    ip = request.client.host if request.client else "127.0.0.1"
     limiter.check_register_rate(ip)
     
     limiter.acquire_argon2()
@@ -53,7 +53,7 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
 
 @router.post("/login", response_model=TokenResponse)
 def login(request: Request, user_in: UserCreate, db: Session = Depends(get_db)):
-    ip = request.client.host
+    ip = request.client.host if request.client else "127.0.0.1"
     username = user_in.username.strip().lower()
     
     limiter.check_login_rate(ip, username)

@@ -2,10 +2,10 @@ import time
 import base64
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
-from app.models import Note, AuditEvent
+from app.models import Note, Envelope, AuditEvent
 from app.schemas import NoteCreate, NoteUpdate, PaginatedNotes
 from app.security import encrypt_note, decrypt_note
 from app.dependencies import require_user, Principal
@@ -29,13 +29,21 @@ def create_note(note_in: NoteCreate, db: Session = Depends(get_db), principal: P
     except ValueError as e:
         raise HTTPException(status_code=413, detail=str(e))
 
+    env_id = str(uuid4())
+    envelope = Envelope(
+        id=env_id,
+        key_id="enc-v1",
+        nonce=nonce,
+        ciphertext=ciphertext,
+        format_version=1
+    )
+
     now = int(time.time())
     note = Note(
         id=note_id,
         user_id=principal.user.id,
-        nonce=nonce,
-        ciphertext=ciphertext,
-        key_id="enc-v1",
+        envelope_id=env_id,
+        version=1,
         created_at=now,
         updated_at=now
     )
@@ -52,6 +60,7 @@ def create_note(note_in: NoteCreate, db: Session = Depends(get_db), principal: P
     for _ in range(3):
         try:
             with db.begin_nested():
+                db.add(envelope)
                 db.add(note)
                 db.add(audit)
             db.commit()
@@ -66,8 +75,8 @@ def create_note(note_in: NoteCreate, db: Session = Depends(get_db), principal: P
                     note_id=note_id,
                     key=NOTES_AES_KEY
                 )
-                note.nonce = nonce
-                note.ciphertext = ciphertext
+                envelope.nonce = nonce
+                envelope.ciphertext = ciphertext
             except ValueError as e:
                 raise HTTPException(status_code=413, detail=str(e))
     else:
@@ -86,14 +95,14 @@ def list_notes(limit: int = 20, offset: int = 0, db: Session = Depends(get_db), 
     limit = max(1, min(limit, 50))
     offset = max(0, offset)
     
-    query = db.query(Note).filter(Note.user_id == principal.user.id).order_by(Note.updated_at.desc())
+    query = db.query(Note).options(joinedload(Note.envelope)).filter(Note.user_id == principal.user.id).order_by(Note.updated_at.desc())
     total = query.count()
     notes = query.offset(offset).limit(limit).all()
     
     items = []
     for note in notes:
         try:
-            decrypted = decrypt_note(note.nonce, note.ciphertext, principal.user.id, note.id, NOTES_AES_KEY)
+            decrypted = decrypt_note(note.envelope.nonce, note.envelope.ciphertext, principal.user.id, note.id, NOTES_AES_KEY, note.envelope.format_version)
             items.append({
                 "id": note.id,
                 "title": decrypted.get("title", ""),
@@ -117,12 +126,12 @@ def list_notes(limit: int = 20, offset: int = 0, db: Session = Depends(get_db), 
 
 @router.get("/{id}")
 def get_note(id: str, db: Session = Depends(get_db), principal: Principal = Depends(require_user)):
-    note = db.query(Note).filter(Note.id == id, Note.user_id == principal.user.id).first()
+    note = db.query(Note).options(joinedload(Note.envelope)).filter(Note.id == id, Note.user_id == principal.user.id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Not found")
         
     try:
-        decrypted = decrypt_note(note.nonce, note.ciphertext, principal.user.id, note.id, NOTES_AES_KEY)
+        decrypted = decrypt_note(note.envelope.nonce, note.envelope.ciphertext, principal.user.id, note.id, NOTES_AES_KEY, note.envelope.format_version)
     except (InvalidTag, ValueError):
         now = int(time.time())
         db.add(AuditEvent(
@@ -147,7 +156,7 @@ def get_note(id: str, db: Session = Depends(get_db), principal: Principal = Depe
 @router.patch("/{id}")
 def update_note(id: str, note_in: NoteUpdate, db: Session = Depends(get_db), principal: Principal = Depends(require_user)):
     # Lock row to prevent concurrent updates breaking nonce constraints
-    note = db.query(Note).filter(Note.id == id, Note.user_id == principal.user.id).with_for_update().first()
+    note = db.query(Note).options(joinedload(Note.envelope)).filter(Note.id == id, Note.user_id == principal.user.id).with_for_update().first()
     if not note:
         raise HTTPException(status_code=404, detail="Not found")
         
@@ -163,8 +172,10 @@ def update_note(id: str, note_in: NoteUpdate, db: Session = Depends(get_db), pri
         raise HTTPException(status_code=413, detail=str(e))
 
     now = int(time.time())
-    note.nonce = nonce
-    note.ciphertext = ciphertext
+    note.envelope.nonce = nonce
+    note.envelope.ciphertext = ciphertext
+    note.envelope.format_version = 1
+    note.version += 1
     note.updated_at = now
     
     audit = AuditEvent(
@@ -190,8 +201,8 @@ def update_note(id: str, note_in: NoteUpdate, db: Session = Depends(get_db), pri
                     note_id=note.id,
                     key=NOTES_AES_KEY
                 )
-                note.nonce = nonce
-                note.ciphertext = ciphertext
+                note.envelope.nonce = nonce
+                note.envelope.ciphertext = ciphertext
             except ValueError as e:
                 raise HTTPException(status_code=413, detail=str(e))
     else:
@@ -212,6 +223,8 @@ def delete_note(id: str, db: Session = Depends(get_db), principal: Principal = D
         raise HTTPException(status_code=404, detail="Not found")
     
     now = int(time.time())
+    if note.envelope:
+        db.delete(note.envelope)
     db.delete(note)
     
     audit = AuditEvent(
@@ -227,13 +240,13 @@ def delete_note(id: str, db: Session = Depends(get_db), principal: Principal = D
 
 @router.get("/{id}/envelope")
 def get_note_envelope(id: str, db: Session = Depends(get_db), principal: Principal = Depends(require_user)):
-    note = db.query(Note).filter(Note.id == id, Note.user_id == principal.user.id).first()
+    note = db.query(Note).options(joinedload(Note.envelope)).filter(Note.id == id, Note.user_id == principal.user.id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Not found")
         
     return {
-        "key_id": note.key_id,
-        "nonce_b64": base64.b64encode(note.nonce).decode('ascii'),
-        "ciphertext_b64": base64.b64encode(note.ciphertext).decode('ascii'),
-        "byte_count": len(note.ciphertext)
+        "key_id": note.envelope.key_id,
+        "nonce_b64": base64.b64encode(note.envelope.nonce).decode('ascii'),
+        "ciphertext_b64": base64.b64encode(note.envelope.ciphertext).decode('ascii'),
+        "byte_count": len(note.envelope.ciphertext)
     }

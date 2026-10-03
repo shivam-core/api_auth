@@ -32,7 +32,7 @@ class PaginatedSessions(BaseModel):
 
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=120)
-    body: str = Field(min_length=1, max_length=5000)
+    body: str = Field(min_length=1, max_length=50000)
 
     class Config:
         extra = 'forbid'
@@ -45,6 +45,7 @@ class NoteSummaryResponse(BaseModel):
     title: str
     created_at: int
     updated_at: int
+    version: int
 
 class NoteResponse(NoteSummaryResponse):
     body: str
@@ -60,6 +61,36 @@ class NoteEnvelopeResponse(BaseModel):
     nonce_b64: str
     ciphertext_b64: str
     byte_count: int
+    version: int
+
+class DocumentResponse(BaseModel):
+    id: str
+    filename: str
+    display_name: str
+    description: Optional[str]
+    byte_length: int
+    media_type: str
+    created_at: int
+    updated_at: int
+    version: int
+
+class PaginatedDocuments(BaseModel):
+    items: List[DocumentResponse]
+    total: int
+    limit: int
+    offset: int
+
+class DocumentUpdate(BaseModel):
+    display_name: Optional[str] = Field(None, min_length=1, max_length=120)
+    description: Optional[str] = Field(None, max_length=1000)
+
+class DocumentEnvelopeResponse(BaseModel):
+    key_id: str
+    metadata_nonce_b64: str
+    metadata_ciphertext_b64: str
+    content_nonce_b64: str
+    content_byte_count: int
+    version: int
 
 class AuditEventResponse(BaseModel):
     id: str
@@ -68,9 +99,33 @@ class AuditEventResponse(BaseModel):
     request_id: str
     created_at: int
     reason_code: Optional[str]
+    source: str
 
 class PaginatedAuditEvents(BaseModel):
     items: List[AuditEventResponse]
     total: int
     limit: int
     offset: int
+
+class OverviewResponse(BaseModel):
+    note_count: int
+    document_count: int
+    storage_used_bytes: int
+    active_sessions: int
+    recent_events: List[AuditEventResponse]
+
+class ExperimentResponse(BaseModel):
+    experiment: str
+    mode: str
+    expected: str
+    observed: str
+    passed: bool
+    duration_ms: Optional[int]
+    explanation: str
+    request_id: str
+
+class SecurityInfoResponse(BaseModel):
+    authentication: str
+    session_management: str
+    encryption: str
+    rate_limiting: str

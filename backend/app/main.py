@@ -36,10 +36,12 @@ async def add_security_headers(request: Request, call_next):
 def health_live():
     return Response(status_code=200)
 
+from sqlalchemy import text
+
 @app.get("/api/health/ready")
 def health_ready(db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return Response(status_code=200)
     except Exception:
         return Response(status_code=503)
@@ -48,6 +50,10 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(notes.router, prefix="/api/notes", tags=["notes"])
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
+from app.routers import documents, overview, experiments
+app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
+app.include_router(overview.router, prefix="/api/overview", tags=["overview"])
+app.include_router(experiments.router, prefix="/api/experiments", tags=["experiments"])
 
 # Static hosting for frontend
 from fastapi.staticfiles import StaticFiles

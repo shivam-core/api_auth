@@ -87,7 +87,8 @@ def create_note(note_in: NoteCreate, db: Session = Depends(get_db), principal: P
         "title": note_in.title,
         "body": note_in.body,
         "created_at": note.created_at,
-        "updated_at": note.updated_at
+        "updated_at": note.updated_at,
+        "version": note.version
     }
 
 @router.get("", response_model=PaginatedNotes)
@@ -107,7 +108,8 @@ def list_notes(limit: int = 20, offset: int = 0, db: Session = Depends(get_db), 
                 "id": note.id,
                 "title": decrypted.get("title", ""),
                 "created_at": note.created_at,
-                "updated_at": note.updated_at
+                "updated_at": note.updated_at,
+                "version": note.version
             })
         except (InvalidTag, ValueError):
             now = int(time.time())
@@ -150,7 +152,8 @@ def get_note(id: str, db: Session = Depends(get_db), principal: Principal = Depe
         "title": decrypted.get("title", ""),
         "body": decrypted.get("body", ""),
         "created_at": note.created_at,
-        "updated_at": note.updated_at
+        "updated_at": note.updated_at,
+        "version": note.version
     }
 
 @router.patch("/{id}")
@@ -213,7 +216,8 @@ def update_note(id: str, note_in: NoteUpdate, db: Session = Depends(get_db), pri
         "title": note_in.title,
         "body": note_in.body,
         "created_at": note.created_at,
-        "updated_at": note.updated_at
+        "updated_at": note.updated_at,
+        "version": note.version
     }
 
 @router.delete("/{id}", status_code=204)
@@ -248,5 +252,6 @@ def get_note_envelope(id: str, db: Session = Depends(get_db), principal: Princip
         "key_id": note.envelope.key_id,
         "nonce_b64": base64.b64encode(note.envelope.nonce).decode('ascii'),
         "ciphertext_b64": base64.b64encode(note.envelope.ciphertext).decode('ascii'),
-        "byte_count": len(note.envelope.ciphertext)
+        "byte_count": len(note.envelope.ciphertext),
+        "version": note.version
     }
